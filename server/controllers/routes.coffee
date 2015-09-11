@@ -10,4 +10,7 @@ module.exports =
         get: twitter.pin
 
     'twitter/load':
-        get:twitter.load
+        get: twitter.load
+
+    'twitter/tweet/:tweet':
+        get: twitter.tweet

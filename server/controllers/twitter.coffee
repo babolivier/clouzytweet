@@ -11,3 +11,7 @@ module.exports.pin = (req, res, next) ->
 module.exports.load = (req, res, next) ->
 	twitterAccount.loadLastLogin () ->
 		res.json twitterAccount.whoAmI()
+
+module.exports.tweet = (req, res, next) ->
+	twitterAccount.tweet req.params.tweet, (err, results) ->
+		res.json results

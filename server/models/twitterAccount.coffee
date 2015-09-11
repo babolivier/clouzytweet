@@ -67,14 +67,16 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 		parameters = []
 		for key, value of params
 			if oauthParams.indexOf(key) isnt -1
-				if value is null
-					switch key
-						when "oauth_nonce" then finalValue = @getNonce()
-						when "oauth_timestamp" then finalValue = Math.round(Date.now()/1000)
-						else finalValue = additionalInfo[key]
-				else
+				finalValue = null
+				switch key
+					when "oauth_nonce" then finalValue = @getNonce()
+					when "oauth_timestamp" then finalValue = Math.round(Date.now()/1000)
+				if additionalInfo[key]
+					finalValue = additionalInfo[key]
+				if finalValue is null
 					finalValue = value
 				parameters.push encodeURIComponent(key)+"="+encodeURIComponent(finalValue)
+		console.log parameters
 		parameters = parameters.sort()
 
 

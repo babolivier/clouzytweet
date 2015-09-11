@@ -7,10 +7,15 @@ lib-cov
 *.out
 *.pid
 *.gz
+*.iml
 
 pids
 logs
 results
+Vagrantfile
 
+.idea
+.vagrant
+client/node_modules
 node_modules
 npm-debug.log

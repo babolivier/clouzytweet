@@ -9,8 +9,8 @@ module.exports =
     'twitter/pin/:pin':
         get: twitter.pin
 
-    'twitter/load':
-        get: twitter.load
-
-    'twitter/tweet/:tweet':
+    'user/tweet/:tweet':
         get: twitter.tweet
+
+    'user/timeline':
+        get: twitter.timeline

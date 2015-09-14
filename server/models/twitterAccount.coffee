@@ -1,5 +1,6 @@
 cozydb  = require 'cozydb'
-request = require 'request'
+https   = require 'https'
+modurl  = require 'url'
 crypto  = require 'crypto'
 printit = require 'printit'
 
@@ -31,29 +32,6 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 		final: null
 
 
-	@getTempTokens: (next) =>
-		header = @getSignedHeader "POST", "https://api.twitter.com/oauth/request_token", [
-			"oauth_callback"
-			"oauth_consumer_key"
-			"oauth_nonce"
-			"oauth_signature_method"
-			"oauth_timestamp"
-			"oauth_version"
-		]
-
-		request.post
-			url: "https://api.twitter.com/oauth/request_token"
-			headers:
-				"Authorization":header
-		, (err, status, body) =>
-			if err
-				callback err
-			else
-				data = @bodyToJSON(body)
-				next null, data
-				@tokens.temp = data.oauth_token
-
-
 	@getNonce: () ->
 		text = "";
 		possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -72,7 +50,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 				finalValue = null
 				switch key
 					when "oauth_nonce" then finalValue = @getNonce()
-					when "oauth_timestamp" then finalValue = Math.round(Date.now()/1000)
+					when "oauth_timestamp" then finalValue = Math.floor(Date.now()/1000)
 				if additionalInfo and additionalInfo[key]
 						finalValue = additionalInfo[key]
 				if finalValue is null
@@ -97,9 +75,41 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 			signing_key += encodeURIComponent(@tokens.final.password)
 		signature = crypto.createHmac('sha1', signing_key).update(signature).digest('base64')
 
-		header = 'OAuth '+parameters.join(', ')+', '+encodeURIComponent("oauth_signature")+'='
-		header += encodeURIComponent(signature)
-		header
+		parameters.push encodeURIComponent("oauth_signature")+'='+encodeURIComponent(signature)
+		parameters.sort()
+
+		header = 'OAuth '+parameters.join(', ')
+
+
+	@sendSignedRequest: (method, url, oauthParams, additionalInfo, next) ->
+		url = modurl.parse url
+
+		oauthUrl = url.protocol+"//"+url.hostname+url.pathname
+		header = @getSignedHeader method, oauthUrl, oauthParams, additionalInfo
+
+		req = https.request
+			hostname: url.host
+			port: 443
+			path: url.path
+			method: method
+			headers:
+				'Authorization': header
+		, (res) =>
+				if res.statusCode is 200
+					next null, res
+				else
+					res.on "data", (data) ->
+						err = new Error "Can't proceed the request, Twitter responded with a "+res.statusCode+\
+						" status code. Full message: "+data
+						log.error err
+						next err
+
+		req.on "error", (err) ->
+			log.error "The server encountered a network error:"
+			console.log err
+			next err
+
+		req.end()
 
 
 	@bodyToJSON: (body) ->
@@ -110,33 +120,6 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 			json[key] = value
 		json
 
-
-	@validatePIN: (pin, next) ->
-		header = @getSignedHeader "POST", "https://api.twitter.com/oauth/access_token", [
-			"oauth_consumer_key"
-			"oauth_nonce"
-			"oauth_signature_method"
-			"oauth_timestamp"
-			"oauth_version"
-			"oauth_verifier"
-			"oauth_token"
-		], {"oauth_verifier": pin, "oauth_token": @tokens.temp}
-
-		request.post
-			url: "https://api.twitter.com/oauth/access_token"
-			headers:
-				"Authorization": header
-		, (err, status, body) =>
-				if err
-					next err
-				else
-					if status.statusCode is 200
-						@saveUser @bodyToJSON(body), (err, created) ->
-							next err, created
-					else
-						log.error "Can't log in, server responded with a "+status.statusCode+" status code. Full message:"
-						console.error body
-						next null, false
 
 	@saveUser: (data, next) ->
 		@create
@@ -151,6 +134,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 				log.info "Successfully logged in as "+data.screen_name+"."
 				next null, true
 
+
 	@loadLastLogin: (next) ->
 		@request 'all', (err, results) =>
 			if err
@@ -159,6 +143,45 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 				@tokens.final = results[0]
 				log.info "Loaded user "+@tokens.final.screen_name+"."
 				next null
+
+
+	@getTempTokens: (next) =>
+		@sendSignedRequest "POST", "https://api.twitter.com/oauth/request_token", [
+			"oauth_callback"
+			"oauth_consumer_key"
+			"oauth_nonce"
+			"oauth_signature_method"
+			"oauth_timestamp"
+			"oauth_version"
+		], null, (err, res) =>
+			if err
+				next err
+			else
+				body = ""
+				res.on "data", (chunk) ->
+					body += chunk.toString()
+				res.on "end", () =>
+					data = @bodyToJSON(body)
+					next null, data
+					@tokens.temp = data.oauth_token
+
+
+	@validatePIN: (pin, next) ->
+		@sendSignedRequest "POST", "https://api.twitter.com/oauth/access_token", [
+			"oauth_consumer_key"
+			"oauth_nonce"
+			"oauth_signature_method"
+			"oauth_timestamp"
+			"oauth_version"
+			"oauth_verifier"
+			"oauth_token"
+		], {"oauth_verifier": pin, "oauth_token": @tokens.temp}, (err, res) =>
+			body = ""
+			res.on "data", (chunk) ->
+				body += chunk.toString()
+			res.on "end", () =>
+				@saveUser @bodyToJSON(body), (err, created) ->
+					next err, created
 
 
 	@whoAmI: ->
@@ -177,26 +200,23 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 
 
 	@sendTweet: (tweet, next) ->
-		url = "https://api.twitter.com/1.1/statuses/update.json"
-		headers = @getSignedHeader("POST", url, [
+		@sendSignedRequest "POST", "https://api.twitter.com/1.1/statuses/update.json?status="+encodeURIComponent(tweet), [
 			"oauth_consumer_key"
 			"oauth_nonce"
 			"oauth_signature_method"
 			"oauth_timestamp"
 			"oauth_version"
 			"oauth_token"
-		], {"oauth_token": @tokens.final.oauth_token, "status": tweet})
-
-		request.post
-			url: url+"?status="+encodeURIComponent(tweet)
-			headers:
-				"Authorization": headers
-		, (err, status, body) =>
+		], {"oauth_token": @tokens.final.oauth_token, "status": tweet}, (err, res) =>
 			if err
 				next err
 			else
-				next null, JSON.parse(body)
-				log.info "Successfully tweeted \""+tweet+"\" as "+@tokens.final.screen_name
+				body = ""
+				res.on "data", (chunk) ->
+					body += chunk.toString()
+				res.on "end", () =>
+					next null, JSON.parse(body)
+					log.info "Successfully tweeted \""+tweet+"\" as "+@tokens.final.screen_name
 
 
 	@getTimeline: (next) ->
@@ -204,22 +224,47 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 			if err
 				next err
 			else
-				url = "https://api.twitter.com/1.1/statuses/home_timeline.json"
-				headers = @getSignedHeader("GET", url, [
+				@sendSignedRequest "GET", "https://api.twitter.com/1.1/statuses/home_timeline.json", [
 					"oauth_consumer_key"
 					"oauth_nonce"
 					"oauth_signature_method"
 					"oauth_timestamp"
 					"oauth_version"
 					"oauth_token"
-				], {"oauth_token": @tokens.final.oauth_token})
-
-				request.get
-					url: url
-					headers:
-						"Authorization": headers
-				, (err, status, body) =>
-						if err
-							next err
-						else
+				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+					if err
+						next err
+					else
+						body = ""
+						res.on "data", (chunk) ->
+							body += chunk.toString()
+						res.on "end", () ->
 							next null, JSON.parse(body)
+
+
+	@getStreamingTimeline: (next) ->
+		@loadLastLogin (err) =>
+			if err
+				next err
+			else
+				@sendSignedRequest "GET", "https://userstream.twitter.com/1.1/user.json", [
+					"oauth_consumer_key"
+					"oauth_nonce"
+					"oauth_signature_method"
+					"oauth_timestamp"
+					"oauth_version"
+					"oauth_token"
+				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+					if err
+						next err
+					else
+						data = ""
+						res.on "data", (chunk) ->
+							if not chunk.toString().match /^\r\n$/
+								if str = chunk.toString().match /(.+)(\r\n)+$/
+									next null, data+str[1]
+									data = ""
+								else
+									data += chunk.toString()
+						res.on "end", () ->
+							next new Error "Stream closed"

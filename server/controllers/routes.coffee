@@ -9,8 +9,15 @@ module.exports =
     'twitter/pin/:pin':
         get: twitter.pin
 
-    'user/tweet/:tweet':
-        get: twitter.tweet
+    'user/tweet/':
+        post: twitter.tweet
+
+    'user/tweet/:id':
+        get: twitter.getTweet
+        post: twitter.retweet
 
     'user/timeline':
         get: twitter.timeline
+
+    'user/stream':
+        get: twitter.stream

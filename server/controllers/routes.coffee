@@ -3,21 +3,31 @@
 twitter = require './twitter'
 
 module.exports =
-    'twitter/tokens':
-        get: twitter.token
+	'twitter/tokens':
+		get: twitter.token
 
-    'twitter/pin/:pin':
-        get: twitter.pin
+	'twitter/pin/:pin':
+		get: twitter.pin
 
-    'user/tweet/':
-        post: twitter.tweet
+	'user/timeline':
+		get: twitter.timeline
 
-    'user/tweet/:id':
-        get: twitter.getTweet
-        post: twitter.retweet
+	'user/streaming':
+		get: twitter.streaming
 
-    'user/timeline':
-        get: twitter.timeline
+	'user/mentions':
+		get: twitter.mentions
 
-    'user/stream':
-        get: twitter.stream
+	'user/stream':
+		get: twitter.stream
+
+	'user/directmessages':
+		get: twitter.dm
+
+	'tweet/':
+		put: twitter.tweet
+
+	'tweet/:id':
+		get: twitter.getTweet
+		post: twitter.action
+		delete: twitter.delete

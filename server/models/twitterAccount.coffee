@@ -63,7 +63,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 		parameters = @getParameters(oauthParams, additionalInfo)
 
 		for field, info of additionalInfo
-			if not field.match /oauth(.+)/
+			if not field.match /^oauth/ # OAuth parameters are already in the array
 				parameters.push encodeURIComponent(field)+"="+encodeURIComponent(info)
 
 		parameters = parameters.sort()
@@ -87,14 +87,28 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 		oauthUrl = url.protocol+"//"+url.hostname+url.pathname
 		header = @getSignedHeader method, oauthUrl, oauthParams, additionalInfo
 
-		req = https.request
+		data = []
+		for key, param of additionalInfo
+			if not key.match /^oauth/
+				data.push encodeURIComponent(key)+'='+encodeURIComponent(param)
+
+		data = data.join("&")
+
+		options =
 			hostname: url.host
 			port: 443
 			path: url.path
 			method: method
 			headers:
 				'Authorization': header
-		, (res) =>
+
+		if data
+			if method is "GET"
+				options["path"] = options["path"]+"?"+data
+			else
+				options["body"] = data
+
+		req = https.request options, (res) =>
 				if res.statusCode is 200
 					next null, res
 				else
@@ -219,12 +233,19 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 					log.info "Successfully tweeted \""+tweet+"\" as "+@tokens.final.screen_name
 
 
-	@getTimeline: (next) ->
+	@getTimeline: (mode, next) ->
 		@loadLastLogin (err) =>
 			if err
 				next err
 			else
-				@sendSignedRequest "GET", "https://api.twitter.com/1.1/statuses/home_timeline.json", [
+				if mode is "mentions"
+					url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
+				else if mode is "direct_messages"
+					url = "https://api.twitter.com/1.1/direct_messages.json"
+				else # If no specific mode: Use the default timeline
+					url = "https://api.twitter.com/1.1/statuses/home_timeline.json"
+
+				@sendSignedRequest "GET", url, [
 					"oauth_consumer_key"
 					"oauth_nonce"
 					"oauth_signature_method"
@@ -234,6 +255,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
 					if err
 						next err
+						console.log err
 					else
 						body = ""
 						res.on "data", (chunk) ->
@@ -242,11 +264,17 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 							next null, JSON.parse(body)
 
 
-	@getStreamingTimeline: (next) ->
+	@getStreamingTimeline: (mode, next) ->
 		@loadLastLogin (err) =>
 			if err
 				next err
 			else
+				additionalInfos =
+					"oauth_token": @tokens.final.oauth_token
+
+				if mode is "mentions"
+					additionalInfos["with"] = "user"
+
 				@sendSignedRequest "GET", "https://userstream.twitter.com/1.1/user.json", [
 					"oauth_consumer_key"
 					"oauth_nonce"
@@ -254,7 +282,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 					"oauth_timestamp"
 					"oauth_version"
 					"oauth_token"
-				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+				], additionalInfos, (err, res) =>
 					if err
 						next err
 					else
@@ -268,3 +296,92 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 									data += chunk.toString()
 						res.on "end", () ->
 							next new Error "Stream closed"
+
+	@getTweet: (id, next) =>
+		@loadLastLogin (err) =>
+			if err
+				next err
+			else
+				@sendSignedRequest "GET", "https://api.twitter.com/1.1/statuses/show/"+id+".json", [
+					"oauth_consumer_key"
+					"oauth_nonce"
+					"oauth_signature_method"
+					"oauth_timestamp"
+					"oauth_version"
+					"oauth_token"
+				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+					if err
+						next err
+					else
+						data = ""
+						res.on "data", (chunk) ->
+							data += chunk.toString()
+						res.on "end", () ->
+							next null, data
+
+	@retweet: (id, next) =>
+		@loadLastLogin (err) =>
+			if err
+				next err
+			else
+				@sendSignedRequest "POST", "https://api.twitter.com/1.1/statuses/retweet/"+id+".json", [
+					"oauth_consumer_key"
+					"oauth_nonce"
+					"oauth_signature_method"
+					"oauth_timestamp"
+					"oauth_version"
+					"oauth_token"
+				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+					if err
+						next err
+					else
+						data = ""
+						res.on "data", (chunk) ->
+							data += chunk.toString()
+						res.on "end", () ->
+							next null, data
+
+	@favorite: (id, next) =>
+		@loadLastLogin (err) =>
+			if err
+				next err
+			else
+				@sendSignedRequest "POST", "https://api.twitter.com/1.1/favorites/create.json?id="+id, [
+					"oauth_consumer_key"
+					"oauth_nonce"
+					"oauth_signature_method"
+					"oauth_timestamp"
+					"oauth_version"
+					"oauth_token"
+				], {"oauth_token": @tokens.final.oauth_token, "id": id}, (err, res) =>
+					if err
+						next err
+					else
+						data = ""
+						res.on "data", (chunk) ->
+							data += chunk.toString()
+						res.on "end", () ->
+							next null, data
+
+
+	@delete: (id, next) =>
+		@loadLastLogin (err) =>
+			if err
+				next err
+			else
+				@sendSignedRequest "POST", "https://api.twitter.com/1.1/statuses/destroy/"+id+".json", [
+					"oauth_consumer_key"
+					"oauth_nonce"
+					"oauth_signature_method"
+					"oauth_timestamp"
+					"oauth_version"
+					"oauth_token"
+				], {"oauth_token": @tokens.final.oauth_token}, (err, res) =>
+					if err
+						next err
+					else
+						data = ""
+						res.on "data", (chunk) ->
+							data += chunk.toString()
+						res.on "end", () ->
+							next null, JSON.parse data

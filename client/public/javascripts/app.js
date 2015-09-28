@@ -306,11 +306,13 @@ module.exports = ViewCollection = (function(_super) {
 });
 
 ;require.register("router", function(exports, require, module) {
-var AppView, Router,
+var AppView, ColumnView, Router,
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
 AppView = require('views/app_view');
+
+ColumnView = require('views/column_view');
 
 module.exports = Router = (function(_super) {
   __extends(Router, _super);
@@ -320,12 +322,31 @@ module.exports = Router = (function(_super) {
   }
 
   Router.prototype.routes = {
-    '': 'main'
+    '': 'main',
+    'timeline': 'timeline',
+    'mentions': 'mentions',
+    'dm': 'dm'
   };
 
   Router.prototype.main = function() {
     var mainView;
+    console.log("dfghjk");
     mainView = new AppView();
+    mainView.render()({
+      timeline: function() {
+        return console.log("dfghjk");
+      }
+    });
+    mainView = new ColumnView();
+    mainView.getTweets("timeline");
+    return mainView.render();
+  };
+
+  Router.prototype.mentions = function() {
+    var mainView;
+    console.log("dfghjk");
+    mainView = new ColumnView();
+    mainView.getTweets("mentions");
     return mainView.render();
   };
 
@@ -352,13 +373,119 @@ module.exports = AppView = (function(_super) {
 
   AppView.prototype.template = require('./templates/home');
 
-  AppView.prototype.afterRender = function() {
-    return console.log("write more code here !");
-  };
-
   return AppView;
 
 })(BaseView);
+});
+
+;require.register("views/column_view", function(exports, require, module) {
+var BaseView, ColumnView,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+BaseView = require('../lib/base_view');
+
+module.exports = ColumnView = (function(_super) {
+  __extends(ColumnView, _super);
+
+  function ColumnView() {
+    return ColumnView.__super__.constructor.apply(this, arguments);
+  }
+
+  ColumnView.prototype.el = 'body.application';
+
+  ColumnView.prototype.template = require('./templates/column');
+
+  ColumnView.prototype.tweets = [];
+
+  ColumnView.prototype.getTweets = function(mode) {
+    var url;
+    switch (false) {
+      case !"timeline":
+        url = "user/timeline";
+        break;
+      case !"mentions":
+        url = "user/mentions";
+        break;
+      case !"dm":
+        url = "user/dm";
+        break;
+      default:
+        url = "user/timeline";
+    }
+    return $.ajax({
+      url: url,
+      method: "GET",
+      dataType: "json",
+      complete: (function(_this) {
+        return function(xhr) {
+          var tweet, _i, _len, _ref, _results;
+          switch (xhr.status) {
+            case 200:
+              _ref = xhr.responseJSON;
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                tweet = _ref[_i];
+                _results.push(_this.tweets.push(tweet.text));
+              }
+              return _results;
+          }
+        };
+      })(this)
+    });
+  };
+
+  ColumnView.prototype.getRenderData = function() {
+    var tweets;
+    console.log(this.tweets);
+    return tweets = this.tweets;
+  };
+
+  return ColumnView;
+
+})(BaseView);
+});
+
+;require.register("views/templates/column", function(exports, require, module) {
+var __templateData = function template(locals) {
+var buf = [];
+var jade_mixins = {};
+var jade_interp;
+var locals_ = (locals || {}),tweets = locals_.tweets;
+buf.push("<div id=\"content\">");
+// iterate tweets
+;(function(){
+  var $$obj = tweets;
+  if ('number' == typeof $$obj.length) {
+
+    for (var $index = 0, $$l = $$obj.length; $index < $$l; $index++) {
+      var tweet = $$obj[$index];
+
+buf.push("<div class=\"tweet\">" + (jade.escape(null == (jade_interp = tweet) ? "" : jade_interp)) + "</div>");
+    }
+
+  } else {
+    var $$l = 0;
+    for (var $index in $$obj) {
+      $$l++;      var tweet = $$obj[$index];
+
+buf.push("<div class=\"tweet\">" + (jade.escape(null == (jade_interp = tweet) ? "" : jade_interp)) + "</div>");
+    }
+
+  }
+}).call(this);
+
+buf.push("</div>");;return buf.join("");
+};
+if (typeof define === 'function' && define.amd) {
+  define([], function() {
+    return __templateData;
+  });
+} else if (typeof module === 'object' && module && module.exports) {
+  module.exports = __templateData;
+} else {
+  __templateData;
+}
 });
 
 ;require.register("views/templates/home", function(exports, require, module) {
@@ -367,7 +494,7 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div id=\"content\"><h1>Cozy template</h1><h2>Welcome</h2><ul><li><a href=\"http://cozy.io/\">Documentation</a></li><li><a href=\"http://cozy.io/hack/getting-started/\">Getting Started</a></li><li><a href=\"https://github.com/mycozycloud\">Github</a></li></ul></div>");;return buf.join("");
+buf.push("<div id=\"content\"><iframe src=\"#timeline\"></iframe><iframe src=\"#mentions\"></iframe><iframe src=\"#ms\"></iframe></div>");;return buf.join("");
 };
 if (typeof define === 'function' && define.amd) {
   define([], function() {

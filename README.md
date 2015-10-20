@@ -1,30 +1,8 @@
 # Description
 
-Cozy Template is a template project to start quickly your own application. Just
-fork it and code while focusing only on your features !
+ClouzyTweets (currently in development) is a Twitter client for [Cozy](http://cozy.io/).
 
-Do you feel lost? No problem, check out our tutorial to get your started: http://cozy.io/hack/getting-started/
-
-# Run
-
-Clone this repository, install dependencies and run server (it requires Node.js
-and Coffee-script)
-
-    npm install -g coffee-script
-    git clone git://github.com/mycozycloud/cozy-template-coffee.git
-    cd cozy-template-coffee
-    npm install
-    coffee server.coffee
-
-If you want to build the application, be sure client side dependencies are installed
-
-    cd client && npm install && cd ..
-
-And then, whenever you want to build your application:
-
-    cake build
-
-Check the `Cakefile` for more information.
+More infos soon (probably).
 
 # What is Cozy?
 

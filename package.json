@@ -1,5 +1,5 @@
 {
-  "name": "cozy-template",
+  "name": "cozy-tweets",
   "version": "1.0.0",
   "engines": [
     "node = 0.10.x"
@@ -12,22 +12,22 @@
   },
   "main": "server.coffee",
   "dependencies": {
-    "request": "latest",
-    "americano": "latest",
-    "cozydb": "latest"
+    "americano": "0.4.2",
+    "cozydb": "0.1.3",
+	"printit": "0.1.9"
   },
   "devDependencies": {
     "should": "4.0.1",
     "mocha": "1.20.1",
     "request-json": "0.4.10",
     "cozy-fixtures": "1.1.1",
-    "coffeelint": "1.5.1",
-    "printit": "^0.1.3"
+    "coffeelint": "1.5.1"
   },
   "scripts": {
     "test": "cake tests",
-    "start": "node build/server.js"
+    "start": "node build/server.js",
+	"build": "cake build"
   },
   "cozy-permissions": {},
-  "cozy-displayName": "Template"
+  "cozy-displayName": "ClouzyTweets"
 }

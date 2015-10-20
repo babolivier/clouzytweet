@@ -37,7 +37,7 @@ module.exports.streaming = (req, res) ->
 			console.log chunk
 
 module.exports.mentions = (req, res) ->
-	twitterAccount.getTimeline "mentions", (err, chunk) ->
+	twitterAccount.getTimeline "mentions", (err, timeline) ->
 		if err
 			console.log err
 		else

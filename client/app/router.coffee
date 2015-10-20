@@ -10,18 +10,15 @@ module.exports = class Router extends Backbone.Router
 		'dm'        : 'dm'
 
 	main: ->
-		console.log "dfghjk"
-		mainView = new AppView()
-		mainView.render()
+        mainView = new AppView()
+        mainView.render()
 
     timeline: ->
-	    console.log "dfghjk"
-		mainView = new ColumnView()
-		mainView.getTweets("timeline")
-		mainView.render()
+        console.log "dfghjk"
 
-	mentions: ->
-		console.log "dfghjk"
-		mainView = new ColumnView()
-		mainView.getTweets("mentions")
-		mainView.render()
+    mentions: ->
+        columnView = new ColumnView()
+        columnView.getTweets("mentions")
+
+    dm: ->
+        console.log "here we are"

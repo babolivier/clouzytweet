@@ -239,7 +239,7 @@ module.exports = class twitterAccount extends cozydb.CozyModel
 				next err
 			else
 				if mode is "mentions"
-					url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
+					url = "https://api.twitter.com/1.1/statuses/mentions_timeline.json"
 				else if mode is "direct_messages"
 					url = "https://api.twitter.com/1.1/direct_messages.json"
 				else # If no specific mode: Use the default timeline

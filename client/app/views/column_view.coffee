@@ -7,7 +7,7 @@ module.exports = class ColumnView extends BaseView
 	tweets: []
 
 	getTweets: (mode) ->
-		switch
+		switch mode
 			when "timeline" then url = "user/timeline"
 			when "mentions" then url = "user/mentions"
 			when "dm" then url = "user/dm"
@@ -21,7 +21,8 @@ module.exports = class ColumnView extends BaseView
 					when 200
 						for tweet in xhr.responseJSON
 							@tweets.push(tweet.text)
+						@render()
 
 	getRenderData: ->
 		console.log @tweets
-		tweets = @tweets
+		tweets: @tweets

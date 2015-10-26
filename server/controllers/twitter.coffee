@@ -1,5 +1,6 @@
 twitterAccount = require '../models/twitterAccount'
 
+
 module.exports.token = (req, res) ->
 	twitterAccount.getTempTokens (err, results) ->
 		res.json results
